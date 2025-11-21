@@ -1,8 +1,13 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 
-app = FastAPI()
+from schemas import Inquiry
+from database import create_document
+
+app = FastAPI(title="SARDAR Disposal & Spare Parts API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -12,13 +17,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 def read_root():
-    return {"message": "Hello from FastAPI Backend!"}
+    return {"message": "SARDAR Disposal & Spare Parts backend running"}
+
 
 @app.get("/api/hello")
 def hello():
-    return {"message": "Hello from the backend API!"}
+    return {"message": "Welcome to SARDAR Disposal & Spare Parts API"}
+
+
+@app.post("/api/inquiries")
+def create_inquiry(payload: Inquiry):
+    try:
+        inserted_id = create_document("inquiry", payload)
+        return {"status": "success", "id": inserted_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/test")
 def test_database():
@@ -31,17 +48,17 @@ def test_database():
         "connection_status": "Not Connected",
         "collections": []
     }
-    
+
     try:
         # Try to import database module
         from database import db
-        
+
         if db is not None:
             response["database"] = "✅ Available"
             response["database_url"] = "✅ Configured"
             response["database_name"] = db.name if hasattr(db, 'name') else "✅ Connected"
             response["connection_status"] = "Connected"
-            
+
             # Try to list collections to verify connectivity
             try:
                 collections = db.list_collection_names()
@@ -51,17 +68,17 @@ def test_database():
                 response["database"] = f"⚠️  Connected but Error: {str(e)[:50]}"
         else:
             response["database"] = "⚠️  Available but not initialized"
-            
+
     except ImportError:
         response["database"] = "❌ Database module not found (run enable-database first)"
     except Exception as e:
         response["database"] = f"❌ Error: {str(e)[:50]}"
-    
+
     # Check environment variables
     import os
     response["database_url"] = "✅ Set" if os.getenv("DATABASE_URL") else "❌ Not Set"
     response["database_name"] = "✅ Set" if os.getenv("DATABASE_NAME") else "❌ Not Set"
-    
+
     return response
 
 
